@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 import pandas as pd
+import datetime
 
 # Selenium4対応済
 
@@ -33,6 +34,18 @@ def set_driver(hidden_chrome: bool=False):
     return Chrome(service=service, options=options)
 
 
+
+'''
+ログファイルを格納するディレクトリを作成
+'''
+def make_dir(dir_path:str) :
+    os.makedirs(dir_path,exist_ok=True)
+make_dir("C:/Users/Yoshi/Project2/log_files")
+
+
+
+
+
 def main():
     '''
     main処理
@@ -57,52 +70,73 @@ def main():
     driver.execute_script('document.querySelector(".karte-close").click()')
 
 
-    '''
-    find_elementでHTML要素(WebElement)を取得する
-    byで、要素を特定する属性を指定するBy.CLASS_NAMEの他、By.NAME、By.ID、By.CSS_SELECTORなどがある
-    特定した要素に対して、send_keysで入力、clickでクリック、textでデータ取得が可能
-    '''
+ 
+    # find_elementでHTML要素(WebElement)を取得する
+    # byで、要素を特定する属性を指定するBy.CLASS_NAMEの他、By.NAME、By.ID、By.CSS_SELECTORなどがある
+    # 特定した要素に対して、send_keysで入力、clickでクリック、textでデータ取得が可能
+ 
     # 検索窓に入力
     driver.find_element(by=By.CLASS_NAME, value="topSearch__text").send_keys(search_keyword)
     # 検索ボタンクリック
     driver.find_element(by=By.CLASS_NAME, value="topSearch__button").click()
 
 
-    '''
-    find_elements(※複数形)を使用すると複数のデータがListで取得できる
-    一覧から同一条件で複数のデータを取得する場合は、こちらを使用する
-    '''''''''
-   
- 
- 
- 
+    
+    # find_elements(※複数形)を使用すると複数のデータがListで取得できる
+    # 一覧から同一条件で複数のデータを取得する場合は、こちらを使用する
+    
  
  
     # 空のDataFrame作成
     df = pd.DataFrame()
     
+    '''
+    ログ記録における件数カウントとしてcounterという変数を作成。
+    '''
+    counter=1
     # while trueにより、exceptでbreakするまで無限ループ
     while True:
         recruit_articles=driver.find_elements(by=By.CSS_SELECTOR,value=".cassetteRecruit__heading.cassetteUseFloat")
+        # if len(recruit_articles)>=1:
         for recruit_article in recruit_articles: 
-            name_elm = recruit_article.find_element(by=By.CLASS_NAME, value="cassetteRecruit__name")
-            copy_elm = recruit_article.find_element(by=By.CLASS_NAME, value="cassetteRecruit__copy.boxAdjust")
-            print(name_elm.text,copy_elm.text)
-            df = df.append(
-                {"会社名": name_elm.text,
-                "キャッチコピー":copy_elm.text}, 
-                ignore_index=True)
-        try:
+            '''
+            １ページ分のクロール処理部分をtryで囲う。findできなかったら、exceptでエラーを補足
+            '''
+            try:
+                name_elm = recruit_article.find_element(by=By.CLASS_NAME, value="cassetteRecruit__name")
+                copy_elm = recruit_article.find_element(by=By.CLASS_NAME, value="cassetteRecruit__copy.boxAdjust")
+                print(name_elm.text,copy_elm.text)
+                df = df.append(
+                    {"会社名": name_elm.text,
+                    "キャッチコピー":copy_elm.text}, 
+                    ignore_index=True)
+                '''
+                成功処理ログを記録。"a"で記録することで、末尾に記録していく。
+                '''
+                with open("C:/Users/Yoshi/Project2/log_files/log_file.txt", 'a', encoding='utf-8_sig') as f:
+                    f.write(f"処理{counter}番目:OK\n")
+                    counter+=1
+            except  :
+                '''
+                失敗ログを記録。errorの場合でも、for文の
+                '''
+                with open("C:/Users/Yoshi/Project2/log_files/log_file.txt", 'a', encoding='utf-8_sig') as f:
+                    f.write(f"処理{counter}番目:NG\n")
+                counter+=1
+        '''
+        次のページボタンを取得。１つ以上あれば、if関数内の処理を実行。存在しなければ、最終ページと判断。
+        '''
+        next_pages=driver.find_elements(by=By.CLASS_NAME, value=".iconFont--arrowLeft")
+        if next_pages:
+            next_pages[0].click()
             
-            # CSSセレクタで「次のページ」を抽出して、クリック
-            driver.find_element(by=By.CSS_SELECTOR, value=".iconFont--arrowLeft").click()
             # 読み込みを完了させるため、sleepを起動
             time.sleep(2)
-
-        except:
+        
+        else:
             print("最終ページです")
             break
-    
+                        
     # #ＣＳＶに書き出す。
     df.to_csv("採用案件一覧.csv",encoding="utf-8_sig")
     
